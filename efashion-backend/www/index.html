@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test OAuth2</title>
+  <style>
+    body {
+      background-color: #2c2c2c;
+      color: white
+    }
+
+    a {
+      color: white;
+      font-size: 20px;
+      display: block;
+      font-weight: bold;
+    }
+
+    .error {
+      color: red;
+    }
+
+    #main {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 15px;
+    }
+
+    .input {
+      margin-bottom: 10px;
+    }
+
+    .element {
+      background-color: #444444;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+    }
+
+    .title {
+      color: yellow;
+    }
+
+    #page {
+      color: aqua;
+    }
+
+    .db {
+      margin-bottom: 30px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>OAuth2</h1>
+  <a href="http://localhost:8080/api/auth/google">Google</a>
+  <div class="db">
+    <h1>Init Db</h1>
+    <button id="db">Add Product</button>
+    <button id="cat">Add categores</button>
+    <button id="brand">Add Brands</button>
+    <br>
+  </div>
+  <button onclick="version()">version</button>
+  <button onclick="google()">Google</button>
+  <button onclick="listProduct()">Products</button>
+  <h1 id="page"></h1>
+  <div class="input">
+    <label for="number">Page</label>
+    <input type="number" id="number" placeholder="Page" value="1">
+  </div>
+  <div class="input">
+    <label for="limit">limit</label>
+    <input type="limit" id="limit" placeholder="Page" value="20">
+  </div>
+  <div id="main"></div>
+
+  <script>
+    const $main = document.getElementById('main')
+    const $page = document.getElementById('page')
+    const $pageNumber = document.getElementById('number')
+    const $limit = document.getElementById('limit')
+    function google() {
+      fetch("http://localhost:8080/api/auth/r")
+    }
+    function version() {
+      fetch("http://localhost:8080/api/version")
+        .then(d => d.json())
+        .then(console.log)
+        .catch(console.log)
+    }
+    function listProduct() {
+      $main.innerHTML = ''
+      $page.innerHTML = ''
+      const limit = $limit.value
+      const page = $pageNumber.value
+      fetch(`http://localhost:8080/api/product/list?limit=${limit}&page=${page}&categories=64b5a70a8bf92be3a8d9c3d3`)
+        .then(d => d.json())
+        .then(p => {
+          console.log(p)
+          if (p.status !== 'success') {
+            main.innerHTML = '<h1 class="error">' + p.message + '<h1>'
+            return
+          }
+          $page.innerHTML = `C-Page: ${p.data.page}  T-Page: ${p.data.totalPages}`
+          p.data.products.forEach((p, i) => {
+            $main.innerHTML += `<div class="element"><h2 class="title">${i + 1} - ${p.title}<h2>\n<p>${p.description}</p>\n<p>Price: ${p.price}</p></div>`
+          })
+        })
+        .catch(err => $main.innerHTML = '<h1 class="error">' + err.message + '<h1>')
+    }
+  </script>
+  <script src="./js/init.js" type="module"></script>
+</body>
+
+</html>

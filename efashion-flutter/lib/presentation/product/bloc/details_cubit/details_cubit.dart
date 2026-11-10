@@ -1,0 +1,137 @@
+import 'package:dartz/dartz.dart';
+import 'package:efashion_flutter/components/productComponent/domain/entities/product_details.dart';
+import 'package:efashion_flutter/components/productComponent/domain/entities/review.dart';
+import 'package:efashion_flutter/components/productComponent/domain/entities/reviewer.dart';
+import 'package:efashion_flutter/components/productComponent/domain/entities/reviews_and_rating.dart';
+import 'package:efashion_flutter/components/productComponent/domain/usecases/home/add_or_edit_product_review_usecase.dart';
+import 'package:efashion_flutter/components/productComponent/domain/usecases/home/get_product_details_usecase.dart';
+import 'package:efashion_flutter/components/productComponent/domain/usecases/home/get_product_reviews_and_ratings_usecase.dart';
+import 'package:efashion_flutter/components/productComponent/domain/usecases/home/get_user_review_usecase.dart';
+import 'package:efashion_flutter/components/userComponent/domain/entities/user.dart';
+import 'package:efashion_flutter/shared/error/failure.dart';
+import 'package:efashion_flutter/shared/util/enums.dart';
+import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:injectable/injectable.dart';
+
+part 'details_state.dart';
+
+@injectable
+class DetailsCubit extends Cubit<DetailsState> {
+  final GetProductDetailsUseCase _getProductDetailsUseCase;
+  final GetProductReviewsAndRatingsUseCase _getProductReviewsAndRatingsUseCase;
+  final AddOrEditProductReviewUseCase _addOrEditProductReviewUseCase;
+  final GetUserProductReviewUseCase _getUserProductReviewUseCase;
+
+  DetailsCubit(
+    this._getProductDetailsUseCase,
+    this._getProductReviewsAndRatingsUseCase,
+    this._addOrEditProductReviewUseCase,
+    this._getUserProductReviewUseCase,
+  ) : super(const DetailsState());
+
+  Future<void> getProductDetails({required String productId}) async {
+    emit(state.copyWith(productDetailsState: CubitState.loading));
+    final Either<Failure, ProductDetails> response =
+        await _getProductDetailsUseCase(productId: productId);
+    response.fold(
+      (failure) => emit(
+        state.copyWith(
+          productDetailsFailMessage: failure.message,
+          productDetailsState: CubitState.failure,
+        ),
+      ),
+      (productDetails) => emit(
+        state.copyWith(
+          productDetails: productDetails,
+          productDetailsState: CubitState.success,
+        ),
+      ),
+    );
+  }
+
+  Future<void> getProductReviewsAndRatings({required String productId}) async {
+    final Either<Failure, ReviewsAndRatings> response =
+        await _getProductReviewsAndRatingsUseCase(productId: productId);
+    response.fold(
+      (failure) => emit(
+        state.copyWith(
+          reviewFailMessage: failure.message,
+          reviewState: CubitState.failure,
+        ),
+      ),
+      (reviewsAndRatings) => emit(
+        state.copyWith(
+          reviewsAndRatings: reviewsAndRatings,
+          reviewState: CubitState.success,
+        ),
+      ),
+    );
+  }
+
+  Future<void> getUserProductReview({
+    required String productId,
+  }) async {
+    final Either<Failure, Review> response = await _getUserProductReviewUseCase(
+      productId: productId,
+    );
+    response.fold(
+      (failure) => emit(
+        state.copyWith(
+          reviewState: CubitState.failure,
+          reviewFailMessage: failure.message,
+        ),
+      ),
+      (review) {
+        final reviewsList = state.reviewsAndRatings.reviews.toList();
+        reviewsList.removeWhere((r) => r.reviewer.id == review.reviewer.id);
+        reviewsList.insert(0, review);
+        emit(
+          state.copyWith(
+            userReview: review,
+            reviewsAndRatings:
+                state.reviewsAndRatings.copyWith(reviews: reviewsList),
+            reviewState: CubitState.success,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> addOrEditProductReview({
+    required String productId,
+    required double rate,
+    String? review,
+  }) async {
+    if (review != state.userReview.comment || rate != state.userReview.rate) {
+      final Either<Failure, Review> response =
+          await _addOrEditProductReviewUseCase(
+        productId: productId,
+        rate: rate,
+        review: review,
+      );
+      response.fold(
+        (failure) => emit(
+          state.copyWith(
+            reviewState: CubitState.failure,
+            reviewFailMessage: failure.message,
+          ),
+        ),
+        (review) {
+          getProductReviewsAndRatings(productId: productId);
+          final reviewsList = state.reviewsAndRatings.reviews.toList();
+          reviewsList.removeWhere((r) => r.reviewer.id == review.reviewer.id);
+          reviewsList.insert(0, review);
+          emit(
+            state.copyWith(
+              userReview: review,
+              reviewsAndRatings:
+                  state.reviewsAndRatings.copyWith(reviews: reviewsList),
+              reviewState: CubitState.success,
+            ),
+          );
+        },
+      );
+    }
+  }
+}
